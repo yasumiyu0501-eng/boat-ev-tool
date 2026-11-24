@@ -1,0 +1,467 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>イチマーク確率・舟券EV分析 v18</title><style>
+:root{color-scheme:light;--bg:#f2f5f8;--card:#fff;--ink:#16304a;--sub:#607286;--blue:#1c5fba;--line:#dce3ed;--good:#087b58;--bad:#ba4b3e}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,'Noto Sans JP',sans-serif;font-size:14px}header{background:#123354;color:white;padding:16px max(16px,calc((100vw - 1180px)/2));}h1{font-size:20px;margin:0 0 5px}header p{margin:0;color:#d1e0ed;font-size:12px}main{max-width:1180px;margin:16px auto;padding:0 12px 48px}.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px;margin-bottom:12px;box-shadow:0 1px 4px #1837570a}h2{font-size:16px;margin:0 0 10px}p.note{color:var(--sub);line-height:1.65;font-size:12px;margin:8px 0}.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:125px}.field label{font-size:12px;color:var(--sub)}input,select,textarea,button{font:inherit}input,select,textarea{border:1px solid #c8d3df;border-radius:8px;background:white;padding:9px;color:var(--ink);width:100%}textarea{resize:vertical;min-height:125px;line-height:1.5}button{border:0;border-radius:8px;padding:10px 16px;background:var(--blue);color:white;font-weight:700;cursor:pointer}button.secondary{background:#e8eef5;color:var(--ink)}button.danger{background:#f8e9e5;color:#a43e34}button:disabled{opacity:.5;cursor:not-allowed}.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.tabs{display:flex;gap:5px;overflow-x:auto;padding:4px 0 10px}.tab{background:#eaf0f7;color:#345775;white-space:nowrap;border-radius:8px;padding:9px 14px}.tab.active{background:var(--blue);color:white}.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{padding:12px;background:#f2f6fb;border-radius:9px}.stat small{display:block;color:var(--sub);font-size:11px}.stat strong{font-size:21px;display:block;margin-top:3px;font-variant-numeric:tabular-nums}.good{color:var(--good)!important}.bad{color:var(--bad)!important}.warn{color:#a16a05}.status{line-height:1.65;font-size:13px;border-left:3px solid #8baaca;background:#f2f6fb;padding:9px 12px;margin:10px 0;white-space:pre-wrap}.status.error{border-color:var(--bad);background:#fff4f0}.tablewrap{overflow:auto;max-height:65vh;border:1px solid var(--line);border-radius:9px}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;white-space:nowrap}th,td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:right}th{background:#eaf0f6;color:#455e73;position:sticky;top:0;z-index:1;font-size:12px}th:nth-child(2),td:nth-child(2){text-align:left}tr:hover td{background:#f5f9ff}td:first-child,th:first-child{text-align:center}.pill{display:inline-block;padding:2px 7px;border-radius:5px;background:#edf3fa;font-weight:700}.pill.high{background:#e1f4eb;color:#087b58}.caption{font-size:11px;color:var(--sub)}.hidden{display:none!important}.btnsmall{padding:7px 10px}.inlineCheck{display:flex;align-items:center;gap:7px}.inlineCheck input{width:auto}.amountInput{width:100px;min-width:90px;padding:7px!important;text-align:right}.export-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.foot{line-height:1.7;font-size:12px;color:var(--sub)}a{color:#1b63bb}@media(max-width:650px){.two{grid-template-columns:1fr}.statrow{grid-template-columns:repeat(2,1fr)}h1{font-size:18px}th,td{padding:8px 7px;font-size:12px}.panel{padding:12px}.field{min-width:110px}} </style></head><body>
+<header><h1>イチマーク 舟券確率・期待値分析 v19</h1><p>三連単120通り＋スマホ版三連複20通りを一括読込｜5券種対応｜ブラウザ内処理</p></header><main>
+<section class="panel"><h2>① イチマークのレース情報を読み込む</h2><div class="flex"><div class="field" style="flex:3;min-width:220px"><label>レースURL（任意・参照用。ページの直接取得は行いません）</label><input id="raceUrl" placeholder="https://ichimark.com/races/2026-11-16/16/2/"></div><button id="openUrl" class="secondary">ページを開く</button></div><p class="note">イチマークのレースページで120通りをすべて展開し、ページ全体を①に貼り付けてください。同じ文章に三連複オッズ20組が含まれていれば、自動登録します。</p><textarea id="source" placeholder="例：\n1位\n1-3-4\n8.4%\n8.9\n14.4\n2位\n1-4-5\n7.6%\n9.9\n9.2\n... 120位まで"></textarea><div class="flex" style="margin-top:9px"><button id="parse">読込・判定</button><button id="example" class="secondary">形式サンプル</button><button id="clear" class="danger">入力を消去</button></div><div id="raceInfo" class="status" aria-live="polite">開催場・レース：未取得</div><div id="status" class="status">データ未読込です。</div></section>
+<section class="panel"><h2>② 券種別オッズ（任意）</h2><p class="note">ページ全文を①に貼ると三連単・三連複・２連単・２連複のオッズも、含まれている券種はまとめて登録します。三連単は元ページの実オッズを利用します。他の券種は、公式オッズ等をコピーし、下に貼り付けます。形式は「1-3-4 5.6」のほか、BOAT RACE公式のスマホ版（縦並び）・PC版（横並び表／Markdown表／タブ区切り）、イチマーク内の艇別三連複表（PC版・スマホ版、券種自動判別）とPC版・スマホ版２連単・２連複表にも対応します。２連複の単独コピー（見出し省略対応）を認識し、番号とオッズが同じ行に結合したスマホコピーも解析できます。「—」等のオッズ未発売・欠損表示は未登録として扱います。２連単と２連複が続く文章は一度に登録できます。開催場・レース番号が異なる場合は誤登録を防ぎます。実オッズがない券種は、確率のみ表示しEV判定は行いません。</p><div class="two"><div class="field"><label>オッズの券種</label><select id="oddsType"><option value="trio">三連複</option><option value="exacta">２連単</option><option value="quinella">２連複</option><option value="wide">拡連複</option><option value="trifecta">三連単（上書き）</option></select></div><div class="field"><label>テキストから読み込み</label><button id="oddsLoad">オッズを登録</button></div></div><textarea id="oddsText" style="margin-top:8px;min-height:85px" placeholder="1-3-4 4.8\n1-3-5 5.7\n1-4-5 6.2"></textarea><p id="oddsStatus" class="note">券種ごとに登録内容を保持します（ページを閉じると消えます）。</p></section>
+<section class="panel"><div class="flex" style="justify-content:space-between;align-items:center"><h2 style="margin:0">③ 期待値判定・買い目選択</h2><div class="flex"><button id="selectGood" class="secondary btnsmall">基準以上を選択</button><button id="unselect" class="secondary btnsmall">選択解除</button></div></div><div class="tabs" id="tabs"></div><div class="flex" style="margin-bottom:12px"><div class="field"><label>期待回収率の最低基準（%）</label><input type="number" id="minEV" min="0" step="5" value="120"></div><div class="field"><label>並べ替え</label><select id="sort"><option value="prob">的中率が高い順</option><option value="ev">期待回収率が高い順</option><option value="odds">オッズが低い順</option><option value="num">組番順</option></select></div><div class="field"><label>１点の購入額（円）</label><input id="stake" type="number" min="100" step="100" value="100"></div><div class="field"><label>表の表示</label><select id="filter"><option value="all">すべて</option><option value="good">期待値基準以上のみ</option><option value="selected">選択した買い目のみ</option></select></div></div><div id="kindInfo" class="status">ページを読み込んでください。</div><div class="tablewrap"><table><thead><tr><th>選択</th><th>組番</th><th>的中率</th><th>実オッズ</th><th>期待回収率</th><th>損益分岐</th></tr></thead><tbody id="rows"><tr><td colspan="6">データがありません</td></tr></tbody></table></div><p class="note">期待回収率 = 的中確率 × 実オッズ × 100%。損益分岐オッズ = 1 ÷ 的中確率。複数点は同一券種の互いに排他的な結果として合算します。</p></section>
+<section class="panel"><h2>④ 複数点の合成的中率・資金配分</h2><div class="flex" style="margin-bottom:12px"><button id="flat" class="secondary">各点均等に100円単位で購入</button><button id="dutch" class="secondary">同額予算で払戻均等化</button><div class="field" style="max-width:210px"><label>払戻均等化の総予算（円）</label><input id="budget" type="number" min="100" step="100" value="1000"></div></div><div class="statrow"><div class="stat"><small>合成的中率</small><strong id="sumProb">0.00%</strong></div><div class="stat"><small>期待回収率</small><strong id="sumEV">—</strong></div><div class="stat"><small>合計購入額</small><strong id="sumStake">0円</strong></div><div class="stat"><small>期待払戻額</small><strong id="sumReturn">—</strong></div></div><div class="export-actions">
+<button id="copyPicks" class="secondary">買い目をコピー</button>
+<button id="sharePicks">スマホで共有</button>
+<button id="saveCsv" class="secondary">CSV保存</button>
+</div>
+<p class="note">購入金額の欄を直接変更できます（100円単位）。変更すると合計・期待回収率を再計算します。共有先はLINE・メールなど端末の共有メニューから選べます。実際の投票は行いません。</p>
+<div class="status" id="summary">買い目を選択してください。</div><div class="tablewrap"><table><thead><tr><th>組番</th><th>確率</th><th>オッズ</th><th>購入金額</th><th>的中時払戻</th><th>的中時純利益</th></tr></thead><tbody id="selectedRows"><tr><td colspan="6">買い目が未選択です</td></tr></tbody></table></div></section>
+<section class="panel foot"><strong>計算上の注意</strong><p>イチマークの妥当なオッズは「0.75 ÷ AI確率」のため、確率は「0.75 ÷ 妥当なオッズ」で復元します。元の妥当なオッズの丸めにより120通りの合計には僅かな誤差があり得ます。部分的なデータしかない場合、他券種への集計は不完全なので表示しません。表示の0.0%は必ずしも確率ゼロを意味しません。元サイトの「買い目」に用いられる市場混合後の確率とは別物です。締切前のオッズは変動します。投票機能はありません。</p><p><a href="https://ichimark.com/about/" target="_blank" rel="noopener">イチマークの計算方式</a>を参照。非公式の独立した分析ツールです。20歳未満の舟券購入はできません。</p></section></main>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id); const TYPES=[['trifecta','三連単'],['trio','三連複'],['exacta','２連単'],['quinella','２連複'],['wide','拡連複']];let raceMeta=null;let base=[],active='trifecta',markets=Object.fromEntries(TYPES.map(([k])=>[k,{}])),selected=Object.fromEntries(TYPES.map(([k])=>[k,new Set()])),stakes={},mode='flat',lastFunds={};const f3=n=>Number(n).toFixed(3), yen=n=>Math.round(n).toLocaleString('ja-JP')+'円',key=a=>a.join('-');
+function canonical(type,a){if(type==='trio'||type==='quinella'||type==='wide')return a.slice().sort((x,y)=>x-y).join('-');return key(a)}
+function combinations(a,k){if(k===0)return [[]];if(!a.length)return [];return combinations(a.slice(1),k-1).map(x=>[a[0],...x]).concat(combinations(a.slice(1),k))}
+function allKeys(type){const a=[1,2,3,4,5,6];if(type==='trifecta')return a.flatMap(i=>a.filter(j=>j!==i).flatMap(j=>a.filter(k=>k!==i&&k!==j).map(k=>`${i}-${j}-${k}`)));if(type==='exacta')return a.flatMap(i=>a.filter(j=>j!==i).map(j=>`${i}-${j}`));return combinations(a,type==='trio'?3:2).map(key)}
+function groupKey(type,triple){let a=triple.split('-').map(Number);if(type==='trifecta')return triple;if(type==='trio')return canonical(type,a);if(type==='exacta')return key(a.slice(0,2));if(type==='quinella')return canonical(type,a.slice(0,2));return null}
+function calcRows(type){if(!base.length)return [];let totals={};for(let r of base){if(type==='wide'){let a=r.combo.split('-').map(Number);for(let pair of combinations(a,2)){let k=canonical('wide',pair);totals[k]=(totals[k]||0)+r.p}}else{let k=groupKey(type,r.combo);totals[k]=(totals[k]||0)+r.p}}return allKeys(type).map(combo=>{let source=base.find(b=>b.combo===combo),o=type==='trifecta'?(markets.trifecta[combo]??source?.odds??null):markets[type][combo]??null,p=totals[combo]||0;return {combo,p,odds:o,ev:o!=null?p*o*100:null}})}
+function parseRaceInfo(text,url){
+ const raw=String(text||'').replace(/\u00a0/g,' ').replace(/\r/g,'');
+ const venues='桐生|戸田|江戸川|平和島|多摩川|浜名湖|蒲郡|常滑|津|三国|びわこ|琵琶湖|住之江|尼崎|鳴門|丸亀|児島|宮島|徳山|下関|若松|芦屋|福岡|唐津|大村';
+ // Prioritize the race heading near the beginning; avoid other race links and results.
+ const head=raw.slice(0,1600);
+ let m=head.match(new RegExp('(?:^|\\n|#\\s*|\\[)\\s*('+venues+')\\s*(?:\\]\\([^)]*\\))?\\s*(\\d{1,2})\\s*R(?=\\D|$)','m'));
+ if(!m)m=head.match(new RegExp('\\[('+venues+')\\]\\([^)]*\\)\\s*(\\d{1,2})\\s*R'));
+ if(!m)m=head.match(new RegExp('('+venues+')\\s*[\\]）】]?\\s*(\\d{1,2})\\s*R'));
+ let venue=m?m[1].replace('琵琶湖','びわこ'):null,race=m?Number(m[2]):null;
+ let date=null;let near=m?head.slice(m.index,m.index+190):head.slice(0,450);
+ let d=near.match(/(20\d{2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+ if(d)date=`${d[1]}-${d[2].padStart(2,'0')}-${d[3].padStart(2,'0')}`;
+ if(!date){let x=near.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/);if(x){let y=String(url||'').match(/\/races\/(20\d{2})-/);let yy=y?y[1]:(head.match(/(20\d{2})年/)||[])[1];date=(yy?yy+'-':'')+x[1].padStart(2,'0')+'-'+x[2].padStart(2,'0')}}
+ let urlMatch=String(url||'').match(/\/races\/(20\d{2}-\d{2}-\d{2})\/(\d{1,2})\/(\d{1,2})\/?/);
+ if(urlMatch){if(!date)date=urlMatch[1];if(!race)race=Number(urlMatch[3]);}
+ if(!race||race<1||race>12)race=null;
+ return {venue,race,date};
+}
+function raceLabel(){if(!raceMeta)return '開催場・レース：未取得';return `${raceMeta.venue||'開催場未取得'} ${raceMeta.race?raceMeta.race+'R':'レース番号未取得'}${raceMeta.date?'｜'+raceMeta.date:''}`}
+function showRace(){ $('raceInfo').textContent='開催レース：'+raceLabel()+'（コピー本文から自動取得）';}
+function parseInput(text){let section=text;let at=section.search(/3\s*連単\s*上位\s*10\s*組/);if(at<0)at=section.search(/三連単\s*上位\s*10\s*組/);if(at>=0)section=section.slice(at);let stop=section.search(/(?:買い目\s*3\s*連単|見立てについて|市場と混ぜた1着率)/);if(stop>=0)section=section.slice(0,stop);section=section.replace(/\u00a0/g,' ').replace(/[‐‑‒–—−－]/g,'-');let regex=/(?:^|\s)(\d{1,3})\s*位\s*([1-6])\s*-\s*([1-6])\s*-\s*([1-6])\s+(\d+(?:\.\d+)?)\s*%\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/g;let out=[],match;while((match=regex.exec(section))!==null){let [_,rank,a,b,c,shown,fair,odd]=match;let nums=[+a,+b,+c],id=key(nums);if(new Set(nums).size!==3||+rank<1||+rank>120||+fair<=0)continue;out.push({rank:+rank,combo:id,p:0.75/(+fair),shown:+shown,fair:+fair,odds:+odd})}return [...new Map(out.map(r=>[r.combo,r])).values()]}
+function parseOfficialTrio(text){
+ // BOAT RACE official mobile copied trifecta-free trio odds: grouped nested headers.
+ // Parse strictly all 20 ascending combinations to avoid mistaking entry numbers for odds.
+ const src=String(text||'').replace(/\r/g,'').replace(/\u00a0/g,' ');
+ if(!/3\s*連単\s*3\s*連複|３\s*連単\s*３\s*連複|締切時オッズ/.test(src))return null;
+ const portion=src.slice(Math.max(0,src.search(/締切時オッズ/)));
+ const lines=portion.split('\n').map(x=>x.trim()).filter(Boolean);
+ const tokens=lines.filter(x=>/^\d+(?:\.\d+)?$/.test(x)).map(Number);
+ for(let start=0;start<tokens.length;start++){
+   let pos=start,out={};let ok=true;
+   function marker(want){if(tokens[pos]!==want){ok=false;return}pos++}
+   for(let i=1;i<=4&&ok;i++){
+     marker(i);
+     for(let j=i+1;j<=5&&ok;j++){
+       marker(j);
+       for(let k=j+1;k<=6&&ok;k++){
+         marker(k);
+         let odd=tokens[pos++];
+         if(!Number.isFinite(odd)||odd<1||odd>100000){ok=false;break}
+         out[`${i}-${j}-${k}`]=odd;
+       }
+     }
+   }
+   if(ok&&Object.keys(out).length===20)return out;
+ }
+ return null;
+}
+function parseOfficialTrioPC(text){
+ // Desktop official trio table. Four column groups, each three logical cells:
+ // (2nd boat, 3rd boat, odds) on group start; (3rd boat, odds, blank) on continuation.
+ // Parse each column group independently, validate all 20 unique combinations.
+ const src=String(text||'').replace(/\r/g,'').replace(/\u00a0/g,' ');
+ if(!/(?:3|３)\s*連複(?:オッズ)?/.test(src))return null;
+ const rows=[];
+ for(const raw of src.split('\n')){
+   let cells;
+   if(raw.includes('|')){
+     cells=raw.trim().replace(/^\|/,'').replace(/\|\s*$/,'').split('|');
+   }else if(raw.includes('\t')){
+     cells=raw.split('\t');
+   }else continue;
+   cells=cells.map(c=>c.replace(/\*\*/g,'').replace(/\*/g,'').replace(/[\u200b\u3000]/g,' ').trim());
+   if(cells.length<12)continue;
+   const groups=[cells.slice(0,3),cells.slice(3,6),cells.slice(6,9),cells.slice(9,12)];
+   // Only body rows that contain odds are relevant (ignore header and separators).
+   if(groups.some(g=>g.some(v=>/^\d+\.\d+$/.test(v))))rows.push(groups);
+ }
+ if(rows.length<10)return null;
+ const out={};
+ for(let g=0;g<4;g++){
+   const i=g+1,values=[];
+   for(const groups of rows){
+     for(const cell of groups[g])if(/^\d+(?:\.\d+)?$/.test(cell))values.push(Number(cell));
+   }
+   let pos=0;
+   for(let j=i+1;j<=5;j++){
+     if(values[pos]!==j)return null;
+     pos++;
+     for(let k=j+1;k<=6;k++){
+       if(values[pos]!==k)return null;
+       pos++;
+       const odd=values[pos++];
+       if(!Number.isFinite(odd)||odd<1||odd>100000)return null;
+       const combo=`${i}-${j}-${k}`;
+       if(Object.hasOwn(out,combo))return null;
+       out[combo]=odd;
+     }
+   }
+   if(pos!==values.length)return null;
+ }
+ return Object.keys(out).length===20?out:null;
+}
+function parseIchimarkTrio(text){
+ // Ichimark compact table: four blocks, led by **1選手名** to **4選手名**.
+ // First row of each group: j, k, odds; subsequent rows: k, odds.
+ const src=String(text||'').replace(/\r/g,'').replace(/\u00a0/g,' ');
+ const lines=src.split('\n'), groups={}; let current=null;
+ for(const raw of lines){
+   const m=raw.match(/^\s*\|?\s*\*{0,2}([1-4])\s*[^|\d\n]*\*{0,2}\s*\|(?:\s*\|\s*){0,2}\s*$/);
+   // Require a player name in the group header, to avoid swallowing numeric table rows.
+   const head=raw.match(/^\s*\|\s*\*{0,2}([1-4])\s*([^\d|:：*\n][^|\n]*?)\*{0,2}\s*\|/);
+   if(head && /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(head[2])){
+     current=+head[1];if(groups[current])return null;groups[current]=[];continue;
+   }
+   if(!current||!raw.includes('|'))continue;
+   const cells=raw.trim().replace(/^\|/,'').replace(/\|\s*$/,'').split('|')
+      .map(x=>x.replace(/\*/g,'').replace(/[\u3000\u200b]/g,' ').trim()).filter(Boolean);
+   if(cells.length!==2&&cells.length!==3)continue;
+   if(!cells.every(x=>/^\d+(?:\.\d+)?$/.test(x)))continue;
+   groups[current].push(cells.map(Number));
+ }
+ if(Object.keys(groups).length!==4)return null;
+ const out={};
+ for(let i=1;i<=4;i++){
+   const rows=groups[i];if(!rows||!rows.length)return null;
+   let j=0;
+   for(const vals of rows){
+     let k,odds;
+     if(vals.length===3){j=vals[0];k=vals[1];odds=vals[2]}
+     else{k=vals[0];odds=vals[1]}
+     if(!(Number.isInteger(j)&&Number.isInteger(k)&&i<j&&j<k&&k<=6&&odds>=1&&odds<=100000))return null;
+     const combo=`${i}-${j}-${k}`;if(Object.hasOwn(out,combo))return null;out[combo]=odds;
+   }
+ }
+ const expected=[];for(let a=1;a<=4;a++)for(let b=a+1;b<=5;b++)for(let c=b+1;c<=6;c++)expected.push(`${a}-${b}-${c}`);
+ if(expected.length!==20||!expected.every(k=>Object.hasOwn(out,k)))return null;
+ return out;
+}
+function parseIchimarkTrioFlexible(text){
+ // Layout-tolerant fallback: extract the numeric stream inside each player block.
+ // Never accept partial / mismatched data. Headers are followed by 10/6/3/1 triples.
+ const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
+ const trimmed=src.split(/(?:\?|？)オッズについて|買い目の作成|このサイトについて/)[0];
+ const lines=trimmed.split('\n');const blocks={};let current=null;
+ for(const raw of lines){
+   const line=raw.replace(/\*\*/g,'').replace(/[`_]/g,'').replace(/[\u00a0\u3000]/g,' ').trim();
+   let h=line.match(/^\|?\s*([1-4])\s*([^\d|:\n]+?)(?:\s*\||$)/u);
+   if(h && /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(h[2])){
+     if(blocks[+h[1]])return null;current=+h[1];blocks[current]=[];continue;
+   }
+   if(current===null)continue;
+   if(/^\s*(?:\?|？)オッズについて|^\s*#{1,4}/.test(line))continue;
+   const numeric=line.includes('|')
+     ?line.split('|').map(c=>c.trim()).filter(c=>/^\d+(?:\.\d+)?$/.test(c))
+     : /^\d+(?:\.\d+)?(?:\s+\d+(?:\.\d+)?)*$/.test(line)?line.split(/\s+/):[];
+   for(const item of numeric)blocks[current].push(+item);
+ }
+ if(Object.keys(blocks).length!==4)return null;
+ const result={};
+ for(let i=1;i<=4;i++){
+   const nums=blocks[i];if(!nums)return null;let pos=0;
+   for(let j=i+1;j<=5;j++)for(let k=j+1;k<=6;k++){
+     if(k===j+1 && nums[pos++]!==j)return null;
+     if(nums[pos++]!==k)return null;
+     const odd=nums[pos++];if(!Number.isFinite(odd)||odd<1||odd>100000)return null;
+     result[`${i}-${j}-${k}`]=odd;
+   }
+   if(pos!==nums.length)return null;
+ }
+ return Object.keys(result).length===20?result:null;
+}
+function parseTrioLoose(text){
+ // Robust fallback for mobile copy: split header number/name into 1 or 2 lines,
+ // remove invisible Unicode separators, ignore non-numeric incidental text.
+ const norm=String(text||'').normalize('NFKC').replace(/[\u200b-\u200f\u2060\ufeff]/g,'').replace(/\r/g,'');
+ const lines=norm.split('\n').map(x=>x.replace(/\*|\||`/g,'').trim()).filter(Boolean);
+ const blocks={};let current=0;
+ for(let i=0;i<lines.length;i++){
+  const line=lines[i];let head=line.match(/^([1-4])\s*([^\d\s].*)$/u);
+  if(!head&&/^[1-4]$/.test(line)&&i+1<lines.length&&/^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(lines[i+1])){
+   head=[line+lines[i+1],line,lines[++i]];
+  }
+  if(head&&/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(head[2])){
+   const n=+head[1]; if(blocks[n])return null;
+   current=n;blocks[n]=[];continue;
+  }
+  if(current && /^\d+(?:\.\d+)?$/.test(line))blocks[current].push(+line);
+ }
+ if(Object.keys(blocks).length!==4)return null;
+ const out={};
+ for(let a=1;a<=4;a++){
+  const nums=blocks[a];if(!nums)return null;let q=0;
+  for(let b=a+1;b<=5;b++)for(let c=b+1;c<=6;c++){
+   if(c===b+1&&nums[q++]!==b)return null;
+   if(nums[q++]!==c)return null;
+   const v=nums[q++];if(!Number.isFinite(v)||v<1||v>100000)return null;
+   out[`${a}-${b}-${c}`]=v;
+  }
+  if(q!==nums.length)return null;
+ }
+ return Object.keys(out).length===20?out:null;
+}
+function getTrioParse(text){return parseIchimarkTrio(text)||parseIchimarkTrioMobile(text)||parseIchimarkTrioFlexible(text)||parseTrioLoose(text)}
+// A full Ichimark race-page paste contains entries, 120 AI predictions and later odds.
+// Isolate the market area before parsing to prevent earlier numeric sections interfering.
+function parseEmbeddedTrio(text){
+ const raw=String(text||'');
+ const matches=[...raw.matchAll(/通常人気順/g)];
+ if(!matches.length)return null;
+ for(let i=matches.length-1;i>=0;i--){
+  const block=raw.slice(matches[i].index).split(/(?:\?|？)オッズについて|モデル\s+live-|COPYRIGHT/i)[0];
+  const result=getTrioParse(block);
+  if(result&&Object.keys(result).length===20)return result;
+ }
+ return null;
+}
+function parseIchimarkTrioMobile(text){
+ // Ichimark smartphone plain-text odds: four sequential boat-name groups.
+ // Parse only the odds area (never the footer or the race entries).
+ const src=String(text||'').normalize('NFKC').replace(/\r/g,'');
+ const body=src.split(/\?オッズについて|買い目の作成|このサイトについて/)[0];
+ const lines=body.split('\n').map(x=>x.trim()).filter(Boolean);
+ const blocks={};let active=null;
+ for(const line of lines){
+   const header=line.match(/^([1-4])\s*([^\d\s].*)$/u);
+   if(header && /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(header[2])){
+     active=Number(header[1]);
+     if(blocks[active])return null;
+     blocks[active]=[];continue;
+   }
+   if(active!==null && /^\d+(?:\.\d+)?$/.test(line))blocks[active].push(Number(line));
+ }
+ if(Object.keys(blocks).length!==4)return null;
+ const result={};
+ for(let i=1;i<=4;i++){
+   let vals=blocks[i],pos=0;
+   for(let j=i+1;j<=5;j++){
+     for(let k=j+1;k<=6;k++){
+       // Each second-place subgroup starts with the j value.
+       if(k===j+1){if(vals[pos++]!==j)return null;}
+       if(vals[pos++]!==k)return null;
+       const odds=vals[pos++];
+       if(!Number.isFinite(odds)||odds<1||odds>100000)return null;
+       result[`${i}-${j}-${k}`]=odds;
+     }
+   }
+   if(pos!==vals.length)return null;
+ }
+ return Object.keys(result).length===20?result:null;
+}
+function preparePairText(text, preferred=''){
+ const raw=String(text||'').normalize('NFKC').replace(/\r/g,'');
+ // イチマークのスマホコピーでは、先頭の「2」が落ち「連複」となる場合がある。
+ let adjusted=raw.replace(/(^|\n)(\s*#{0,5}\s*)連複\s*(?=\n|$)/g,'$1$22連複');
+ // 券種を選択した単独の艇別縦並びデータなら、見出し無しでも解析する。
+ const hasHeader=/(?:^|\n)\s*#{0,5}\s*2連(?:単|複)\s*(?=\n|$)/.test(adjusted);
+ if(!hasHeader && (preferred==='quinella'||preferred==='exacta')){
+   const first=adjusted.trimStart();
+   if(/^1\s*[^\d\s\n][^\n]*\n/u.test(first) && !first.includes('|')){
+     adjusted=(preferred==='quinella'?'2連複':'2連単')+'\n'+first;
+   }
+ }
+ return adjusted;
+}
+function parseIchimarkPairMobile(text){
+ // 券種見出しから一表だけを切り出す。欠損「—」は組番を保持しオッズ登録のみ除外。
+ // 複数の券種が含まれていても、各券種を独立して検証する。
+ const raw=preparePairText(text).replace(/\u00a0/g,' ');
+ const found=[...raw.matchAll(/(?:^|\n)\s*(?:#{1,5}\s*)?(2連単|2連複)\s*(?=\n|$)/g)];
+ const output={};const problems=[];
+ for(let h=0;h<found.length;h++){
+   const type=found[h][1]==='2連単'?'exacta':'quinella';
+   let section=raw.slice(found[h].index+found[h][0].length, found[h+1]?.index??raw.length);
+   section=section.split(/(?:\?|？)オッズについて|買い目の作成|このサイトについて|モデル\s+live-|(?:^|\n)\s*(?:#{1,5}\s*)?(?:3連単|3連複|拡連複)\s*(?:\n|$)/)[0];
+   if(section.includes('|'))continue; // Markdown表は専用PCパーサーへ
+   // Androidでコピーした文章は、艇番号とオッズが1行に結合することがある。
+   // 例: 「2  3.8」「3\t4.8」。番号+数値だけの行を安全に2トークンへ分離。
+   // 選手名見出し (1久田敏之) や数値単体は変更しない。
+   section=section.replace(/(^|\n)\s*([1-6])[ \t]+(\d+(?:\.\d+)?|[—–−-])[ \t]*(?=\n|$)/g, '$1$2\n$3');
+   const lines=section.split('\n').map(s=>s.trim()).filter(Boolean);
+   const expectedGroupCount=type==='exacta'?6:5;
+   const groups={};let current=null;
+   for(let i=0;i<lines.length;i++){
+     const line=lines[i];
+     const head=line.match(/^([1-6])\s*([^\d\s].*)$/u);
+     if(head && /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(head[2])){
+       current=+head[1];
+       if(groups[current]){problems.push(`${type}: ${current}号艇の見出し重複`);current=null;break;}
+       groups[current]=[];continue;
+     }
+     if(current===null)continue;
+     if(!/^[1-6]$/.test(line)){problems.push(`${type}: ${current}号艇内で予期しない行「${line.slice(0,16)}」`);break;}
+     const partner=+line;
+     const next=lines[++i];
+     if(next===undefined||!/^(?:\d+(?:\.\d+)?|[—–−-])$/.test(next)){
+       problems.push(`${type}: ${current}-${partner}のオッズ形式が不正`);break;
+     }
+     const odd=/^[—–−-]$/.test(next)?null:Number(next);
+     if(odd!==null && (!Number.isFinite(odd)||odd<1||odd>100000)){
+       problems.push(`${type}: ${current}-${partner}のオッズが異常`);break;
+     }
+     groups[current].push([partner,odd]);
+   }
+   if(Object.keys(groups).length!==expectedGroupCount){problems.push(`${type}: 艇別表${Object.keys(groups).length}/${expectedGroupCount}`);continue;}
+   const data={};let ok=true;
+   for(let boat=1;boat<=expectedGroupCount;boat++){
+     const want=[1,2,3,4,5,6].filter(j=>type==='exacta'?j!==boat:j>boat);
+     const actual=groups[boat]||[];
+     const seen=new Set();
+     if(actual.length!==want.length){problems.push(`${type}: ${boat}号艇${actual.length}/${want.length}組`);ok=false;break;}
+     for(const [j,odd] of actual){
+       if(!want.includes(j)||seen.has(j)){problems.push(`${type}: ${boat}-${j}が不正または重複`);ok=false;break;}
+       seen.add(j);if(odd!==null)data[`${boat}-${j}`]=odd;
+     }
+     if(!ok)break;
+   }
+   if(ok)output[type]=data;
+ }
+ parseIchimarkPairMobile.lastProblems=problems;
+ return Object.keys(output).length?output:null;
+}
+function parseIchimarkPairPC(text){
+ // Parse two-column Markdown tables grouped by the first-boat player header.
+ // Exacta: six groups, 5 opponents each. Quinella: five groups, descending opponents.
+ const normalized=String(text||'').normalize('NFKC').replace(/\r/g,'');
+ const headers=[...normalized.matchAll(/^\s*#{2,4}\s*(2連単|2連複)\s*$/gm)];
+ const output={};
+ for(let h=0;h<headers.length;h++){
+   const type=headers[h][1]==='2連単'?'exacta':'quinella';
+   const section=normalized.slice(headers[h].index+headers[h][0].length,headers[h+1]?.index??normalized.length)
+     .split(/(?:\?オッズについて|買い目の作成|このサイトについて)/)[0];
+   const count=type==='exacta'?6:5;
+   const groups={},lines=section.split('\n');let current=null,invalid=false;
+   for(const raw of lines){
+     const head=raw.match(/^\s*\|\s*\*{0,2}([1-6])\s*([^\d|:*][^|]*)\s*\|/u);
+     if(head&&/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(head[2])){
+       const i=+head[1];if(groups[i]){invalid=true;break;}current=i;groups[i]=[];continue;
+     }
+     if(current===null||!raw.includes('|'))continue;
+     const cells=raw.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(x=>x.replace(/\*/g,'').trim());
+     if(cells.length<2||!/^[1-6]$/.test(cells[0]))continue;
+     const j=+cells[0],token=cells[1].replace(/[‐‑‒–—−－]/g,'-');
+     if(!/^(?:\d+(?:\.\d+)?|-)$/.test(token))continue;
+     const odd=token==='-'?null:+token;
+     if(j===current||(type==='quinella'&&j<current)||(odd!==null&&(odd<1||odd>100000))){invalid=true;break;}
+     groups[current].push([j,odd]);
+   }
+   if(invalid||Object.keys(groups).length!==count)return null;
+   const odds={};
+   for(let i=1;i<=count;i++){
+     const seen=new Set(),rows=groups[i];if(!rows)return null;
+     const expected=type==='exacta'?[1,2,3,4,5,6].filter(j=>j!==i):[1,2,3,4,5,6].filter(j=>j>i);
+     if(rows.length!==expected.length)return null;
+     for(const [j,odd] of rows){if(!expected.includes(j)||seen.has(j))return null;seen.add(j);if(odd!==null)odds[`${i}-${j}`]=odd;}
+   }
+   if(output[type])return null;
+   output[type]=odds;
+ }
+ return Object.keys(output).length?output:null;
+}
+function parseOfficialRace(text){
+ let x=String(text||'').normalize('NFKC').replace(/[\s　]+/g,'');
+ let venues='桐生|戸田|江戸川|平和島|多摩川|浜名湖|蒲郡|常滑|津|三国|びわこ|琵琶湖|住之江|尼崎|鳴門|丸亀|児島|宮島|徳山|下関|若松|芦屋|福岡|唐津|大村';
+ let venue=(x.match(new RegExp('(?:##)?('+venues+')(?:場コード|場ｺｰﾄﾞ|#|：)'))||[])[1]||null;
+ if(!venue)venue=(x.match(new RegExp('('+venues+')(?:競技詳細|一般|第)'))||[])[1]||null;
+ if(venue==='琵琶湖')venue='びわこ';
+ let race=(x.match(/([1-9]|1[0-2])R締切(?:予定時刻|時刻|時オッズ)/i)||[])[1];
+ if(!race)race=(x.match(/([1-9]|1[0-2])R締切/i)||[])[1];
+ let d=String(text||'').match(/(\d{1,2})月(\d{1,2})日\s*\/\s*(?:最終日|初日|\d+日目)/);
+ // schedule has many dates, so use the latest shown day only when the target race day is explicit elsewhere
+ return {venue,race:race?+race:null,date:null};
+}
+function renderTabs(){ $('tabs').innerHTML='';for(let [k,n] of TYPES){let b=document.createElement('button');b.className='tab'+(active===k?' active':'');b.textContent=n;b.onclick=()=>{active=k;mode='flat';render()};$('tabs').appendChild(b)}}
+function status(s,error=false){$('status').textContent=s;$('status').className='status'+(error?' error':'')}
+function render(){renderTabs();let complete=base.length===120;if(!complete&&active!=='trifecta'){$('kindInfo').textContent='他券種の確率計算には三連単120通りすべてが必要です。現在 '+base.length+'/120 組です。';$('rows').innerHTML='<tr><td colspan="6">120通りを読み込んでください</td></tr>';summary();return}let rows=calcRows(active),min=+($('minEV').value||0), sort=$('sort').value,filter=$('filter').value;rows.sort((a,b)=>sort==='num'?a.combo.localeCompare(b.combo,'en',{numeric:true}):sort==='odds'?(a.odds??Infinity)-(b.odds??Infinity):sort==='ev'?(b.ev??-Infinity)-(a.ev??-Infinity):b.p-a.p);let avail=rows.filter(x=>x.odds!=null).length,passed=rows.filter(x=>x.ev!=null&&x.ev>=min).length;$('kindInfo').textContent=`${TYPES.find(x=>x[0]===active)[1]}：${rows.length}組｜オッズ取得 ${avail}組｜期待回収率${min}%以上 ${passed}組${!complete?'｜部分データにつき他券種集計不可':''}`;let html='',count=0;for(let r of rows){if(filter==='good'&&!(r.ev!=null&&r.ev>=min))continue;if(filter==='selected'&&!selected[active].has(r.combo))continue;count++;html+=`<tr><td><input aria-label="${r.combo}を選択" type="checkbox" data-combo="${r.combo}" ${selected[active].has(r.combo)?'checked':''}></td><td><span class="pill">${r.combo}</span></td><td>${f3(r.p*100)}%</td><td>${r.odds==null?'—':r.odds}</td><td class="${r.ev!=null&&r.ev>=min?'good':''}">${r.ev==null?'—':r.ev.toFixed(1)+'%'}</td><td>${r.p>0?(1/r.p).toFixed(2):'—'}</td></tr>`} $('rows').innerHTML=html||'<tr><td colspan="6">該当する買い目がありません</td></tr>';$('rows').querySelectorAll('input').forEach(el=>el.onchange=()=>{if(el.checked)selected[active].add(el.dataset.combo);else selected[active].delete(el.dataset.combo);mode='flat';summary()});summary()}
+function getSelected(){const all=calcRows(active);return all.filter(x=>selected[active].has(x.combo))}
+function computeStakes(rows){let unit=Math.max(100,Math.floor((+$('stake').value||100)/100)*100);if(mode==='flat')return Object.fromEntries(rows.map(r=>[r.combo,stakes[active+'|'+r.combo]??unit]));let budget=Math.floor((+$('budget').value||1000)/100)*100,units=Math.floor(budget/100);if(rows.some(x=>!(x.odds>0))||units<rows.length)return Object.fromEntries(rows.map(r=>[r.combo,unit]));let weights=rows.map(r=>1/r.odds),sum=weights.reduce((x,y)=>x+y,0),q=weights.map(w=>w/sum*units),alloc=q.map(v=>Math.max(1,Math.floor(v))),assigned=alloc.reduce((x,y)=>x+y,0);while(assigned>units){let best=-1,dist=Infinity;for(let i=0;i<alloc.length;i++)if(alloc[i]>1){let d=q[i]-(alloc[i]-1);if(d<dist){dist=d;best=i}}if(best<0)break;alloc[best]--;assigned--}while(assigned<units){let best=0,dist=-Infinity;for(let i=0;i<alloc.length;i++){let d=q[i]-alloc[i];if(d>dist){dist=d;best=i}}alloc[best]++;assigned++}return Object.fromEntries(rows.map((r,i)=>[r.combo,alloc[i]*100]))}
+function summary(){let rows=getSelected();let p=rows.reduce((s,r)=>s+r.p,0);$('sumProb').textContent=(p*100).toFixed(2)+'%';if(!rows.length){lastFunds={};$('sumEV').textContent='—';$('sumStake').textContent='0円';$('sumReturn').textContent='—';$('summary').textContent='買い目を選択してください。';$('selectedRows').innerHTML='<tr><td colspan="6">買い目が未選択です</td></tr>';return}let funds=computeStakes(rows);lastFunds=funds;let invest=rows.reduce((s,r)=>s+funds[r.combo],0),hasAll=rows.every(r=>r.odds!=null),ret=hasAll?rows.reduce((s,r)=>s+r.p*r.odds*funds[r.combo],0):null; $('sumStake').textContent=yen(invest);$('sumReturn').textContent=ret==null?'—':yen(ret);$('sumEV').textContent=ret==null?'—':(ret/invest*100).toFixed(1)+'%';let profit=hasAll?rows.filter(r=>r.odds*funds[r.combo]>invest).reduce((s,r)=>s+r.p,0):null;let low=hasAll?Math.min(...rows.map(r=>r.odds*funds[r.combo]-invest)):null;$('summary').textContent=`${rows.length}点購入｜少なくとも１点的中する確率 ${(p*100).toFixed(3)}%｜${hasAll?'黒字となる確率 '+(profit*100).toFixed(3)+'%｜的中時の最低純利益 '+yen(low):'オッズ未登録の買い目があるため期待回収率と利益判定はできません'}。\n購入方式：${mode==='flat'?'均等購入':'払戻均等化（100円単位に丸め）'}。この数値はサイトのAI予測確率を前提とした理論値です。`;$('selectedRows').innerHTML=rows.map(r=>`<tr><td>${r.combo}</td><td>${(r.p*100).toFixed(3)}%</td><td>${r.odds??'—'}</td><td><input class="amountInput" aria-label="${r.combo}の購入額" type="number" min="100" step="100" data-amount="${r.combo}" value="${funds[r.combo]}"></td><td>${r.odds==null?'—':yen(r.odds*funds[r.combo])}</td><td class="${r.odds!=null&&r.odds*funds[r.combo]>=invest?'good':'bad'}">${r.odds==null?'—':yen(r.odds*funds[r.combo]-invest)}</td></tr>`).join('');$('selectedRows').querySelectorAll('[data-amount]').forEach(el=>el.onchange=()=>{let v=Number(el.value);if(!Number.isFinite(v)||v<100||v%100!==0){alert('購入額は100円以上・100円単位で入力してください。');el.value=lastFunds[el.dataset.amount];return}stakes[active+'|'+el.dataset.amount]=v;mode='flat';summary()})}
+$('parse').onclick=()=>{let items=parseInput($('source').value);if(!items.length){let raw=$('source').value;let pairs=parseIchimarkPairMobile(raw)||parseIchimarkPairPC(raw);if(pairs){$('oddsText').value=raw;$('oddsLoad').click();status('２連単・２連複オッズを検出したため②へ自動で振り替えました。');return;}let trio=parseEmbeddedTrio(raw)||getTrioParse(raw);if(trio){$('oddsText').value=raw;$('oddsType').value='trio';$('oddsLoad').click();status('三連複オッズ20組を検出したため、②のオッズ登録に自動で切り替えました。期待値計算には別途イチマークの三連単120通りの確率が必要です。');return;}status('予測表を解析できませんでした。「3連単 上位10組」の下にある、順位・組番・確率・妥当なオッズ・実オッズの５項目を含めてコピーしてください。',true);return}raceMeta=parseRaceInfo($('source').value,$('raceUrl').value);showRace();base=items;markets=Object.fromEntries(TYPES.map(([k])=>[k,{}]));for(let r of items)markets.trifecta[r.combo]=r.odds;const embeddedTrio=parseEmbeddedTrio($('source').value);if(embeddedTrio)markets.trio=embeddedTrio;const embeddedPairs=parseIchimarkPairMobile($('source').value)||parseIchimarkPairPC($('source').value);if(embeddedPairs){for(const [kind, odds] of Object.entries(embeddedPairs))markets[kind]=odds;}selected=Object.fromEntries(TYPES.map(([k])=>[k,new Set()]));stakes={};mode='flat';let sum=base.reduce((s,r)=>s+r.p,0);status(`${base.length}/120組を読み込みました。逆算した確率の合計：${(sum*100).toFixed(4)}%。${base.length===120?'全券種の確率を計算できます。':'120組未満のため、他券種の集計はできません。「120通り全部を見る」を展開してから、もう一度①にコピーしてください。'}${embeddedTrio?' 三連複オッズ20/20組も同時に登録しました。':' 三連複オッズは未検出です（②から別途登録できます）。'}${embeddedPairs?Object.keys(embeddedPairs).map(kind=>' '+(kind==='exacta'?'２連単':'２連複')+'オッズ'+Object.keys(embeddedPairs[kind]).length+'/'+(kind==='exacta'?'30':'15')+'組を同時登録しました。').join(''):''}${Math.abs(sum-1)>0.01&&base.length===120?' 注意：確率合計が100%から大きくずれています。データを確認してください。':''}`);active='trifecta';render()};
+$('oddsLoad').onclick=()=>{let type=$('oddsType').value,txt=preparePairText($('oddsText').value,type).replace(/[‐‑‒–—−－]/g,'-');
+// ２連複のみのスマホ縦並びコピーは、他券種の汎用判定より先に確定する。
+// 15組の組番を内部検証し、欠損値「—」だけはオッズ未取得として登録する。
+const qOnly=/^\s*(?:#{1,5}\s*)?2連複\s*$/m.test(txt.normalize('NFKC')) && !/^\s*(?:#{1,5}\s*)?2連単\s*$/m.test(txt.normalize('NFKC'));
+if(qOnly){
+ const parsed=parseIchimarkPairMobile(txt);
+ if(parsed?.quinella && Object.keys(parsed.quinella).length>=0){
+  const srcRace=parseRaceInfo(txt,'');
+  if(raceMeta&&((raceMeta.venue&&srcRace.venue&&raceMeta.venue!==srcRace.venue)||(raceMeta.race&&srcRace.race&&raceMeta.race!==srcRace.race))){
+   $('oddsStatus').className='status error';$('oddsStatus').textContent='登録中止：AI予測と２連複オッズの開催レースが異なります。';return;
+  }
+  markets.quinella=parsed.quinella;active='quinella';$('oddsType').value='quinella';
+  const count=Object.keys(parsed.quinella).length;const missing=[];for(let a=1;a<=5;a++)for(let b=a+1;b<=6;b++)if(!(a+'-'+b in parsed.quinella))missing.push(a+'-'+b);$('oddsStatus').className='status';$('oddsStatus').textContent='２連複 '+count+'/15組の数値オッズを登録しました。'+(missing.length?'未取得：'+missing.join('、')+'（「—」表示は期待値判定・購入候補から除外）。':'全組取得済み。')+(base.length===120?'期待値を計算できます。':'期待回収率の表示には①で三連単120通りのAI確率を読み込んでください。');render();return;
+ }
+ $('oddsStatus').className='status error';$('oddsStatus').textContent='２連複の登録に失敗しました。15組全部を含む縦並びの表を貼ってください。'+(parseIchimarkPairMobile.lastProblems||[]).join('／');return;
+}
+
+// 三連複の４つの選手別ブロックは券種選択に関係なく自動検出する。
+const pairText=/(?:^|\n)\s*#{0,5}\s*2連(?:単|複)\s*(?:\n|$)/.test(txt);
+const quickTrio=pairText?null:(parseEmbeddedTrio(txt)||getTrioParse(txt));
+if(quickTrio){
+ const srcRace=parseRaceInfo(txt,'');
+ if(raceMeta&&((raceMeta.venue&&srcRace.venue&&raceMeta.venue!==srcRace.venue)||(raceMeta.race&&srcRace.race&&raceMeta.race!==srcRace.race))){$('oddsStatus').className='status error';$('oddsStatus').textContent='登録中止：AI予測とオッズの開催レースが異なります。';return;}
+ markets.trio=quickTrio;active='trio';$('oddsType').value='trio';$('oddsStatus').className='status';$('oddsStatus').textContent='三連複20組を正常に読み込みました。'+(base.length===120?'期待回収率を表示できます。':'三連単120通りのAI確率を①に読み込むと期待回収率も計算できます。');render();return;
+}
+const mobilePairs=parseIchimarkPairMobile(txt);
+const pcPairs=mobilePairs||parseIchimarkPairPC(txt);
+if(pcPairs){
+ const srcRace=parseRaceInfo(txt,'');
+ if(raceMeta&&((raceMeta.venue&&srcRace.venue&&raceMeta.venue!==srcRace.venue)||(raceMeta.race&&srcRace.race&&raceMeta.race!==srcRace.race))){
+   $('oddsStatus').className='status error';$('oddsStatus').textContent='登録中止：AI予測とオッズの開催レースが異なります。';return;
+ }
+ for(const [kind,rows] of Object.entries(pcPairs))markets[kind]=rows;
+ const names=Object.keys(pcPairs).map(kind=>kind==='exacta'?`２連単 ${Object.keys(pcPairs[kind]).length}/30組`:`２連複 ${Object.keys(pcPairs[kind]).length}/15組`);
+ $('oddsStatus').className='status';
+ $('oddsStatus').textContent=`イチマーク ${names.join('・')}を登録しました。オッズが「—」の組は未登録として除外しています。`+(!srcRace.venue||!srcRace.race?'開催場・レース番号がないため同じレースか確認してください。':'')+(base.length===120?'期待値を計算できます。':'先に同じレースの三連単120組の予測を読み込んでください。');
+ active=pcPairs.exacta?'exacta':'quinella';render();return;
+}
+if(/(?:^|\n)\s*#{2,4}\s*2連(?:単|複)/.test(txt)){
+ $('oddsStatus').className='status error';$('oddsStatus').textContent='２連単・２連複の解析に失敗しました。'+(parseIchimarkPairMobile.lastProblems||[]).join('／')+'。以前の登録内容は変更していません。';return;
+}
+let parsedIchimark=type==='trio'?(getTrioParse(txt)):null;
+let parsedOfficial=type==='trio'&&!parsedIchimark?(parseOfficialTrioPC(txt)||parseOfficialTrio(txt)):null;
+if(parsedIchimark){
+ let srcRace=parseRaceInfo(txt,'');
+ if(raceMeta && ((raceMeta.venue&&srcRace.venue&&raceMeta.venue!==srcRace.venue)||(raceMeta.race&&srcRace.race&&raceMeta.race!==srcRace.race))){
+  $('oddsStatus').className='status error';
+  $('oddsStatus').textContent=`登録中止：読み込んだAI予測と三連複オッズの開催レースが違います。`;return;
+ }
+ markets.trio=parsedIchimark;
+ $('oddsStatus').className='status';
+ $('oddsStatus').textContent='イチマーク掲載の三連複オッズ20組を登録しました（PC版・スマホ版対応）。'+(!srcRace.venue||!srcRace.race?'このコピーには開催場・レース番号がないため、AI予測と同じレースか目視確認してください。':'')+(base.length===120?' 期待値を計算できます。':' 先に同レースの三連単120組の予測確率を読み込んでください。');
+ active='trio';render();return;
+}
+if(parsedOfficial){
+ let srcRace=parseOfficialRace(txt);
+ if(raceMeta && ((raceMeta.venue&&srcRace.venue&&raceMeta.venue!==srcRace.venue)||(raceMeta.race&&srcRace.race&&raceMeta.race!==srcRace.race))){
+ $('oddsStatus').textContent=`登録中止：AI予測は「${raceLabel()}」、公式オッズは「${srcRace.venue||'不明'} ${srcRace.race||'?'}R」です。開催・レースが一致するオッズを貼り付けてください。`;
+ $('oddsStatus').className='status error';return;
+ }
+ markets.trio=parsedOfficial;
+ $('oddsStatus').className='status';
+ $('oddsStatus').textContent=`公式三連複オッズ20組を登録しました（スマホ・PC両形式対応）（${srcRace.venue||'開催場不明'} ${srcRace.race||'?'}R）。${base.length===120?'確率との照合ができます。':'先に同レースのイチマーク三連単120組を読み込んでください。'}`;
+ active='trio';render();return;
+}
+if(type==='trio' && ((/(?:3|３)\s*連複(?:オッズ)?/.test(txt) && (txt.includes('|')||txt.includes('\t')||/締切時オッズ/.test(txt))) || /\|\s*\*\*[1-4][^|]*[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(txt) || /(?:^|\n)[1-4][^\d\n]*[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(txt))){$('oddsStatus').className='status error';$('oddsStatus').textContent='三連複オッズ20組を登録できませんでした。市場オッズの「通常人気順」から「オッズについて」までを②へ貼り付けてください。①にページ全文を貼り付けて「読込・判定」する方法も使えます。以前の登録オッズは維持しています。';return;}
+let pat=/([1-6])\s*-\s*([1-6])(?:\s*-\s*([1-6]))?\s+(\d+(?:\.\d+)?)(?!\s*%)/g,m,n=0;while((m=pat.exec(txt))!==null){let a=[+m[1],+m[2]];if(m[3])a.push(+m[3]);if(new Set(a).size!==a.length||a.length!==(type==='trifecta'||type==='trio'?3:2))continue;let k=canonical(type,a);markets[type][k]=+m[4];n++}$('oddsStatus').textContent=`${TYPES.find(x=>x[0]===type)[1]}：${n}組のオッズを登録しました。${type==='trio'&&n===0?' 公式ページのコピーは全20組が必要です。':''}`;render()};
+$('selectGood').onclick=()=>{let min=+$('minEV').value,rows=calcRows(active);for(let r of rows)if(r.ev!=null&&r.ev>=min)selected[active].add(r.combo);mode='flat';render()};$('unselect').onclick=()=>{selected[active].clear();mode='flat';render()};$('flat').onclick=()=>{for(let r of getSelected())delete stakes[active+'|'+r.combo];mode='flat';summary()};$('dutch').onclick=()=>{mode='dutch';summary()};for(let id of ['minEV','sort','filter','stake'])$(id).addEventListener('change',render);$('budget').addEventListener('change',summary);$('openUrl').onclick=()=>{let url=$('raceUrl').value.trim();if(!/^https:\/\/ichimark\.com\/races\//.test(url)){status('イチマークのレースURL（https://ichimark.com/races/...）を入力してください。',true);return}window.open(url,'_blank','noopener')};$('clear').onclick=()=>{$('source').value='';raceMeta=null;showRace();base=[];markets=Object.fromEntries(TYPES.map(([k])=>[k,{}]));selected=Object.fromEntries(TYPES.map(([k])=>[k,new Set()]));stakes={};status('入力を消去しました。');render()};function exportData(){let rows=getSelected(),funds=lastFunds;if(!rows.length){alert('まず買い目を選択してください。');return null}let invest=rows.reduce((s,r)=>s+(funds[r.combo]||0),0),prob=rows.reduce((s,r)=>s+r.p,0),ret=rows.every(r=>r.odds!=null)?rows.reduce((s,r)=>s+r.p*r.odds*(funds[r.combo]||0),0):null;let name=TYPES.find(x=>x[0]===active)[1],url=$('raceUrl').value.trim(),details=rows.map(r=>({combo:r.combo,stake:funds[r.combo],prob:r.p*100,odds:r.odds,ev:r.ev}));return {name,url,race:raceLabel(),invest,prob,ret,details}}
+function exportText(d){return ['【イチマーク 買い目集計】','レース: '+d.race,...(d.url?['参照URL: '+d.url]:[]),'券種: '+d.name,...d.details.map(r=>`${r.combo}　${yen(r.stake)}　的中率${r.prob.toFixed(3)}%　オッズ${r.odds??'未登録'}`),`点数: ${d.details.length}点`,`合計購入額: ${yen(d.invest)}`,`合成的中率: ${d.prob.toFixed(3)}%`,`期待回収率: ${d.ret==null?'算出不可':(d.ret/d.invest*100).toFixed(1)+'%'}`].join('\n')}
+async function copyText(t){try{await navigator.clipboard.writeText(t);alert('買い目と購入金額をコピーしました。LINEやメールに貼り付けられます。')}catch(e){let x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();try{document.execCommand('copy');alert('コピーしました。')}catch(e){prompt('この文章を長押ししてコピーしてください',t)}x.remove()}}
+$('copyPicks').onclick=()=>{let d=exportData();if(d)copyText(exportText(d))};
+$('sharePicks').onclick=async()=>{let d=exportData();if(!d)return;let t=exportText(d);if(navigator.share){try{await navigator.share({title:'舟券の買い目一覧',text:t});return}catch(e){if(e.name==='AbortError')return}}copyText(t)};
+$('saveCsv').onclick=()=>{let d=exportData();if(!d)return;let q=v=>'"'+String(v??'').replaceAll('"','""')+'"';let records=[['開催レース',d.race],['参照URL',d.url],['券種','組番','購入金額(円)','的中率(%)','オッズ','期待回収率(%)'],...d.details.map(r=>[d.name,r.combo,r.stake,r.prob.toFixed(4),r.odds??'',r.ev==null?'':r.ev.toFixed(2)]),['合計','',d.invest,d.prob.toFixed(4),'',d.ret==null?'':(d.ret/d.invest*100).toFixed(2)]];let csv='\ufeff'+records.map(row=>row.map(q).join(',')).join('\r\n');let blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ichimark_picks_'+(raceMeta?.date||new Date().toISOString().slice(0,10))+'_'+(raceMeta?.venue||'unknown')+'_'+(raceMeta?.race?raceMeta.race+'R':'unknown')+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$('example').onclick=()=>{$('source').value='児島 2R 11月16日（月）\n3連単 上位10組 見立ての確率の順\n順位 組番 確率 妥当なオッズ オッズ（締切80秒前）\n1位\n1-3-4\n8.4%\n8.9\n14.4\n2位\n1-4-5\n7.6%\n9.9\n9.2\n3位\n1-4-3\n7.2%\n10.5\n18.5\n買い目 3連単';$('parse').click()};render();
+showRace();})();</script></body></html>
